@@ -4,4 +4,4 @@
         model = YOLO("rtdetr-l.pt") 
         model.export(format="onnx", opset=16)
     2. Generate engine
-       trtexec.exe --onnx=rtdetr-l.onnx --saveEngine=rtdetr-l.engine
+        trtexec.exe --onnx=rtdetr-l.onnx --saveEngine=rtdetr-l.engine
