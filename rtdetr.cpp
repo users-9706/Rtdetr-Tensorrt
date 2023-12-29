@@ -33,7 +33,6 @@ int INPUT_CHANNEL = 3;
 int IMAGE_WIDTH = 640;
 int IMAGE_HEIGHT = 640;
 float obj_threshold = 0.4;
-float nms_threshold = 0.45;
 float conf_thresh = 0.5f;
 int64 outSize;
 nvinfer1::ICudaEngine* engine = nullptr;
