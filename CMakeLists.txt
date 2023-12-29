@@ -27,7 +27,6 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 link_directories(${OpenCV_LIB_DIRS})  
 include_directories(${TRT_SAM_DIR}) 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Ofast -D_MWAITXINTRIN_H_INCLUDED")
-# setup opencv
 find_package(OpenCV QUIET
     NO_MODULE
     NO_DEFAULT_PATH
