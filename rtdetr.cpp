@@ -62,7 +62,6 @@ void draw_objects(const cv::Mat& image, const std::vector<Object>& objects)
 		const Object& obj = objects[i];
 		fprintf(stderr, "%d = %.5f at %.2f %.2f %.2f x %.2f\n", obj.label, obj.score,
 			obj.rect.x, obj.rect.y, obj.rect.width, obj.rect.height);
-
 		cv::Scalar color = cv::Scalar(0, 0, 255);
 		float c_mean = cv::mean(color)[0];
 		cv::Scalar txt_color;
@@ -75,7 +74,6 @@ void draw_objects(const cv::Mat& image, const std::vector<Object>& objects)
 		cv::rectangle(image, obj.rect, color * 255, 2);
 		char text[256];
 		sprintf(text, "%s %.1f%%", class_names[obj.label], obj.score * 100);
-
 		int baseLine = 0;
 		cv::Size label_size = cv::getTextSize(text, cv::FONT_HERSHEY_SIMPLEX, 0.4, 1, &baseLine);
 		cv::Scalar txt_bk_color = color * 0.7 * 255;
@@ -93,7 +91,6 @@ void draw_objects(const cv::Mat& image, const std::vector<Object>& objects)
 }
 void post_process_cpu(float* p, cv::Mat& src_img)
 {
-	
 	float width = src_img.cols;
 	float height = src_img.rows;
 	float ratio_h = (640 * 1.0f) / height;
@@ -154,7 +151,7 @@ std::vector<float> prepareImage(std::vector<cv::Mat>& vec_img) {
 	}
 	return result;
 }
-bool readTrtFile(const std::string& engineFile, //name of the engine file
+bool readTrtFile(const std::string& engineFile, 
 	nvinfer1::ICudaEngine*& engine)
 {
 	std::string cached_engine;
