@@ -92,7 +92,6 @@ void draw_objects(const cv::Mat& image, const std::vector<Object>& objects)
 	cv::imshow("image", image);
 	cv::waitKey(0);
 }
-
 void post_process_cpu(float* p, cv::Mat& src_img)
 {
 	float width = src_img.cols;
@@ -129,22 +128,6 @@ void post_process_cpu(float* p, cv::Mat& src_img)
 		proposals.push_back(obj);
 	}
 	draw_objects(flt_img, proposals);
-}
-std::vector<float> xywh2xyxy(std::vector<float> data) {
-	float tl_x = data[0] - data[2] / 2.0;
-	float tl_y = data[1] - data[3] / 2.0;
-	float br_x = data[0] + data[2] / 2.0;
-	float br_y = data[1] + data[3] / 2.0;
-	return { tl_x, tl_y, br_x, br_y };
-
-}
-template <typename T>
-vector<int> sort_indexes(vector<T>& v)
-{
-	vector<int> idx(v.size());
-	iota(idx.begin(), idx.end(), 0);
-	sort(idx.begin(), idx.end(), [&v](int i1, int i2) {return v[i1] > v[i2]; });	//这样是降序，改成<就是升序了
-	return idx;
 }
 std::vector<float> prepareImage(std::vector<cv::Mat>& vec_img) {
 	std::vector<float> result(BATCH_SIZE * IMAGE_WIDTH * IMAGE_HEIGHT * INPUT_CHANNEL);
@@ -195,27 +178,7 @@ bool readTrtFile(const std::string& engineFile, //name of the engine file
 	engine = trtRuntime->deserializeCudaEngine(cached_engine.data(), cached_engine.size(), nullptr);
 	return true;
 }
-float IOUCalculate(const DetectRes& det_a, const DetectRes& det_b) {
-	cv::Point2f center_a(det_a.x, det_a.y);
-	cv::Point2f center_b(det_b.x, det_b.y);
-	cv::Point2f left_up(min(det_a.x - det_a.w / 2, det_b.x - det_b.w / 2), min(det_a.y - det_a.h / 2, det_b.y - det_b.h / 2));
-	cv::Point2f right_down(max(det_a.x + det_a.w / 2, det_b.x + det_b.w / 2),
-		max(det_a.y + det_a.h / 2, det_b.y + det_b.h / 2));
-	float distance_d = (center_a - center_b).x * (center_a - center_b).x + (center_a - center_b).y * (center_a - center_b).y;
-	float distance_c = (left_up - right_down).x * (left_up - right_down).x + (left_up - right_down).y * (left_up - right_down).y;
-	float inter_l = det_a.x - det_a.w / 2 > det_b.x - det_b.w / 2 ? det_a.x - det_a.w / 2 : det_b.x - det_b.w / 2;
-	float inter_t = det_a.y - det_a.h / 2 > det_b.y - det_b.h / 2 ? det_a.y - det_a.h / 2 : det_b.y - det_b.h / 2;
-	float inter_r = det_a.x + det_a.w / 2 < det_b.x + det_b.w / 2 ? det_a.x + det_a.w / 2 : det_b.x + det_b.w / 2;
-	float inter_b = det_a.y + det_a.h / 2 < det_b.y + det_b.h / 2 ? det_a.y + det_a.h / 2 : det_b.y + det_b.h / 2;
-	if (inter_b < inter_t || inter_r < inter_l)
-		return 0;
-	float inter_area = (inter_b - inter_t) * (inter_r - inter_l);
-	float union_area = det_a.w * det_a.h + det_b.w * det_b.h - inter_area;
-	if (union_area == 0)
-		return 0;
-	else
-		return inter_area / union_area - distance_d / distance_c;
-}
+
 void LoadEngine() {
 	std::fstream existEngine;
 	existEngine.open(engine_file, std::ios::in);
@@ -314,27 +277,9 @@ bool InferenceFolder(const std::string& Image_path) {
 	engine->destroy();
 	return true;
 }
-void NmsDetect(std::vector<DetectRes>& detections) {
-	sort(detections.begin(), detections.end(), [=](const DetectRes& left, const DetectRes& right) {
-		return left.prob > right.prob;
-		});
-	for (int i = 0; i < (int)detections.size(); i++)
-		for (int j = i + 1; j < (int)detections.size(); j++)
-		{
-			if (detections[i].classes == detections[j].classes)
-			{
-				float iou = IOUCalculate(detections[i], detections[j]);
-				if (iou > nms_threshold)
-					detections[j].prob = 0;
-			}
-		}
-	detections.erase(std::remove_if(detections.begin(), detections.end(), [](const DetectRes& det)
-		{ return det.prob == 0; }), detections.end());
-}
 int main()
 {
 	LoadEngine();
 	string image_path = "bus.jpg";
 	InferenceFolder(image_path);
 }
-
