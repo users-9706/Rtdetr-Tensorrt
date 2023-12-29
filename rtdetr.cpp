@@ -10,13 +10,10 @@
 #include <opencv2/opencv.hpp>
 #include <cuda_runtime_api.h>
 #include "NvOnnxParser.h"
-
 using namespace std;
 using namespace cv;
 using namespace sample;
 using namespace samplesCommon;
-
-
 struct DetectRes {
 	int classes;
 	float x;
@@ -25,13 +22,10 @@ struct DetectRes {
 	float h;
 	float prob;
 };
-
 int output_bbox_num;
 const std::string output_blob_name = "output0";
 const int det_bbox_len = 4;
 const int det_cls_len = 80;
-
-
 std::string engine_file = "./rtdetr-l.engine";
 std::string labels_file = "";
 int BATCH_SIZE = 1;
@@ -40,25 +34,17 @@ int IMAGE_WIDTH = 640;
 int IMAGE_HEIGHT = 640;
 float obj_threshold = 0.4;
 float nms_threshold = 0.45;
-
 float conf_thresh = 0.5f;
-
 int64 outSize;
-
-
 nvinfer1::ICudaEngine* engine = nullptr;
 nvinfer1::IExecutionContext* context = nullptr;
-
 Logger gLogger{ sample::Logger::Severity::kINFO };
-
-
 struct Object
 {
 	cv::Rect_<float> rect;
 	int label;
 	float score;
 };
-
 void draw_objects(const cv::Mat& image, const std::vector<Object>& objects)
 {
 	static const char* class_names[] = {
@@ -72,13 +58,9 @@ void draw_objects(const cv::Mat& image, const std::vector<Object>& objects)
 		"microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear",
 		"hair drier", "toothbrush"
 	};
-
-	// cv::Mat image = bgr.clone();
-
 	for (size_t i = 0; i < objects.size(); i++)
 	{
 		const Object& obj = objects[i];
-
 		fprintf(stderr, "%d = %.5f at %.2f %.2f %.2f x %.2f\n", obj.label, obj.score,
 			obj.rect.x, obj.rect.y, obj.rect.width, obj.rect.height);
 
@@ -91,28 +73,19 @@ void draw_objects(const cv::Mat& image, const std::vector<Object>& objects)
 		else {
 			txt_color = cv::Scalar(255, 255, 255);
 		}
-
 		cv::rectangle(image, obj.rect, color * 255, 2);
-
 		char text[256];
 		sprintf(text, "%s %.1f%%", class_names[obj.label], obj.score * 100);
 
 		int baseLine = 0;
 		cv::Size label_size = cv::getTextSize(text, cv::FONT_HERSHEY_SIMPLEX, 0.4, 1, &baseLine);
-
 		cv::Scalar txt_bk_color = color * 0.7 * 255;
-
 		int x = obj.rect.x;
 		int y = obj.rect.y + 1;
-		//int y = obj.rect.y - label_size.height - baseLine;
 		if (y > image.rows)
 			y = image.rows;
-		//if (x + label_size.width > image.cols)
-			//x = image.cols - label_size.width;
-
 		cv::rectangle(image, cv::Rect(cv::Point(x, y), cv::Size(label_size.width, label_size.height + baseLine)),
 			txt_bk_color, -1);
-
 		cv::putText(image, text, cv::Point(x, y + label_size.height),
 			cv::FONT_HERSHEY_SIMPLEX, 0.4, txt_color, 1);
 	}
@@ -122,12 +95,10 @@ void draw_objects(const cv::Mat& image, const std::vector<Object>& objects)
 
 void post_process_cpu(float* p, cv::Mat& src_img)
 {
-
 	float width = src_img.cols;
 	float height = src_img.rows;
 	float ratio_h = (640 * 1.0f) / height;
 	float ratio_w = (640 * 1.0f) / width;
-	//
 	if (!src_img.data)
 		return;
 	float ratio = float(IMAGE_WIDTH) / float(src_img.cols) < float(IMAGE_HEIGHT) / float(src_img.rows) ? float(IMAGE_WIDTH) / float(src_img.cols) : float(IMAGE_HEIGHT) / float(src_img.rows);
@@ -135,43 +106,30 @@ void post_process_cpu(float* p, cv::Mat& src_img)
 	cv::Mat rsz_img;
 	cv::resize(src_img, rsz_img, cv::Size(), ratio, ratio);
 	rsz_img.copyTo(flt_img(cv::Rect(0, 0, rsz_img.cols, rsz_img.rows)));
-	//
-	
-	
 	std::vector<Object> proposals;
-
 	for (int index = 0; index < output_bbox_num; index++)
 	{
 		float* ptr = p + index * (det_bbox_len + det_cls_len);
 		float* pclass = ptr + det_bbox_len;
-
 		int label = std::max_element(pclass, pclass + det_cls_len) - pclass;
 		float confidence = pclass[label];
-
 		if (confidence < conf_thresh) continue;
-
 		float x_center = ptr[0];
 		float y_center = ptr[1];
 		float w = ptr[2];
 		float h = ptr[3];
-
 		float left = (x_center - w * 0.5f) * 640;
 		float top = (y_center - h * 0.5f) * 640;
 		float right = (x_center + w * 0.5f) * 640;
 		float bottom = (y_center + h * 0.5f) * 640;
-
 		Object obj;
 		obj.rect = cv::Rect_<float>(left, top, right - left, bottom - top);
-
 		obj.label = label;
 		obj.score = confidence;
 		proposals.push_back(obj);
 	}
-
 	draw_objects(flt_img, proposals);
 }
-
-
 std::vector<float> xywh2xyxy(std::vector<float> data) {
 	float tl_x = data[0] - data[2] / 2.0;
 	float tl_y = data[1] - data[3] / 2.0;
@@ -180,8 +138,6 @@ std::vector<float> xywh2xyxy(std::vector<float> data) {
 	return { tl_x, tl_y, br_x, br_y };
 
 }
-
-
 template <typename T>
 vector<int> sort_indexes(vector<T>& v)
 {
@@ -216,8 +172,6 @@ std::vector<float> prepareImage(std::vector<cv::Mat>& vec_img) {
 	}
 	return result;
 }
-
-
 bool readTrtFile(const std::string& engineFile, //name of the engine file
 	nvinfer1::ICudaEngine*& engine)
 {
@@ -226,29 +180,21 @@ bool readTrtFile(const std::string& engineFile, //name of the engine file
 	std::cout << "loading filename from:" << engineFile << std::endl;
 	nvinfer1::IRuntime* trtRuntime;
 	file.open(engineFile, std::ios::binary | std::ios::in);
-
 	if (!file.is_open()) {
 		std::cout << "read file error: " << engineFile << std::endl;
 		cached_engine = "";
 	}
-
 	while (file.peek() != EOF) {
 		std::stringstream buffer;
 		buffer << file.rdbuf();
 		cached_engine.append(buffer.str());
 	}
 	file.close();
-
 	trtRuntime = nvinfer1::createInferRuntime(sample::gLogger.getTRTLogger());
 	initLibNvInferPlugins(&sample::gLogger.getTRTLogger(), ""); 
 	engine = trtRuntime->deserializeCudaEngine(cached_engine.data(), cached_engine.size(), nullptr);
-	//std::cout << "deserialize done" << std::endl;
-
 	return true;
 }
-
-
-
 float IOUCalculate(const DetectRes& det_a, const DetectRes& det_b) {
 	cv::Point2f center_a(det_a.x, det_a.y);
 	cv::Point2f center_b(det_b.x, det_b.y);
@@ -270,9 +216,7 @@ float IOUCalculate(const DetectRes& det_a, const DetectRes& det_b) {
 	else
 		return inter_area / union_area - distance_d / distance_c;
 }
-
 void LoadEngine() {
-	// create and load engine
 	std::fstream existEngine;
 	existEngine.open(engine_file, std::ios::in);
 	if (existEngine) {
@@ -280,8 +224,6 @@ void LoadEngine() {
 		assert(engine != nullptr);
 	}
 }
-
-
 void EngineInference(const std::vector<std::string>& image_list, const int& outSize, void** buffers,
 	const std::vector<int64_t>& bufferSize, cudaStream_t stream) {
 	int index = 0;
@@ -296,7 +238,6 @@ void EngineInference(const std::vector<std::string>& image_list, const int& outS
 		cv::Mat src_img = cv::imread(image_name);
 		if (src_img.data)
 		{
-			//            cv::cvtColor(src_img, src_img, cv::COLOR_BGR2RGB);
 			vec_Mat[batch_id] = src_img.clone();
 			vec_name[batch_id] = image_name;
 			batch_id++;
@@ -315,11 +256,8 @@ void EngineInference(const std::vector<std::string>& image_list, const int& outS
 				std::cout << "prepare images ERROR!" << std::endl;
 				continue;
 			}
-			// DMA the input to the GPU,  execute the batch asynchronously, and DMA it back:
 			std::cout << "host2device" << std::endl;
 			cudaMemcpyAsync(buffers[0], curInput.data(), bufferSize[0], cudaMemcpyHostToDevice, stream);
-
-			// do inference
 			std::cout << "execute" << std::endl;
 			auto t_start = std::chrono::high_resolution_clock::now();
 			context->execute(BATCH_SIZE, buffers);
@@ -331,45 +269,29 @@ void EngineInference(const std::vector<std::string>& image_list, const int& outS
 			std::cout << "device2host" << std::endl;
 			std::cout << "post process" << std::endl;
 			auto r_start = std::chrono::high_resolution_clock::now();
-			//auto *out = new float[outSize * BATCH_SIZE];
 			void* p = malloc(outSize * BATCH_SIZE * sizeof(nvinfer1::DataType::kHALF));
 			cudaMemcpyAsync(p, buffers[1], bufferSize[1], cudaMemcpyDeviceToHost, stream);
-
-			//cudaMemcpyAsync(out, buffers[1], bufferSize[1], cudaMemcpyDeviceToHost, stream);
 			cudaStreamSynchronize(stream);
 			float* out = static_cast<float*>(p);
-
 			post_process_cpu(out, src_img);
-			//postProcessor(vec_Mat, out, outSize);
-
-
 		}
 	}
 	std::cout << "Average processing time is " << total_time / image_list.size() << "ms" << std::endl;
 }
-
-
 bool InferenceFolder(const std::string& Image_path) {
-	//std::vector<std::string> sample_images = readFolder(folder_name);
 	std::vector<std::string> sample_images;
 	sample_images.push_back(Image_path);
-	//get context
 	assert(engine != nullptr);
 	context = engine->createExecutionContext();
 	assert(context != nullptr);
-
-	//get buffers
 	assert(engine->getNbBindings() == 2);
 	void* buffers[2];
 	std::vector<int64_t> bufferSize;
 	int nbBindings = engine->getNbBindings();
 	bufferSize.resize(nbBindings);
-
-	//
 	int output_index= engine->getBindingIndex(output_blob_name.c_str());
 	auto output_dims = engine->getBindingDimensions(output_index);
 	output_bbox_num = output_dims.d[1];
-
 	for (int i = 0; i < nbBindings; ++i) {
 		nvinfer1::Dims dims = engine->getBindingDimensions(i);
 		nvinfer1::DataType dtype = engine->getBindingDataType(i);
@@ -382,35 +304,20 @@ bool InferenceFolder(const std::string& Image_path) {
 			outSize = totalSize / getElementSize(dtype);
 		}
 	}
-
-
-	//get stream
 	cudaStream_t stream;
 	cudaStreamCreate(&stream);
-
-	//int outSize = bufferSize[1] / sizeof(float) / BATCH_SIZE;
-	//int outSize = bufferSize[1] / 2 / BATCH_SIZE;
-
 	EngineInference(sample_images, outSize, buffers, bufferSize, stream);
-
-	// release the stream and the buffers
 	cudaStreamDestroy(stream);
 	cudaFree(buffers[0]);
 	cudaFree(buffers[1]);
-
-	// destroy the engine
 	context->destroy();
 	engine->destroy();
-
-	//add
 	return true;
 }
-
 void NmsDetect(std::vector<DetectRes>& detections) {
 	sort(detections.begin(), detections.end(), [=](const DetectRes& left, const DetectRes& right) {
 		return left.prob > right.prob;
 		});
-
 	for (int i = 0; i < (int)detections.size(); i++)
 		for (int j = i + 1; j < (int)detections.size(); j++)
 		{
@@ -421,19 +328,13 @@ void NmsDetect(std::vector<DetectRes>& detections) {
 					detections[j].prob = 0;
 			}
 		}
-
 	detections.erase(std::remove_if(detections.begin(), detections.end(), [](const DetectRes& det)
 		{ return det.prob == 0; }), detections.end());
 }
-
-
-
-
 int main()
 {
 	LoadEngine();
-
-	string image_path = "./zidane.jpg";
+	string image_path = "bus.jpg";
 	InferenceFolder(image_path);
 }
 
