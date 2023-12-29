@@ -94,6 +94,7 @@ void draw_objects(const cv::Mat& image, const std::vector<Object>& objects)
 }
 void post_process_cpu(float* p, cv::Mat& src_img)
 {
+	
 	float width = src_img.cols;
 	float height = src_img.rows;
 	float ratio_h = (640 * 1.0f) / height;
@@ -101,10 +102,9 @@ void post_process_cpu(float* p, cv::Mat& src_img)
 	if (!src_img.data)
 		return;
 	float ratio = float(IMAGE_WIDTH) / float(src_img.cols) < float(IMAGE_HEIGHT) / float(src_img.rows) ? float(IMAGE_WIDTH) / float(src_img.cols) : float(IMAGE_HEIGHT) / float(src_img.rows);
-	cv::Mat flt_img = cv::Mat::zeros(cv::Size(IMAGE_WIDTH, IMAGE_HEIGHT), CV_8UC3);
+	std::cout << ratio << std::endl;
 	cv::Mat rsz_img;
 	cv::resize(src_img, rsz_img, cv::Size(), ratio, ratio);
-	rsz_img.copyTo(flt_img(cv::Rect(0, 0, rsz_img.cols, rsz_img.rows)));
 	std::vector<Object> proposals;
 	for (int index = 0; index < output_bbox_num; index++)
 	{
@@ -117,17 +117,17 @@ void post_process_cpu(float* p, cv::Mat& src_img)
 		float y_center = ptr[1];
 		float w = ptr[2];
 		float h = ptr[3];
-		float left = (x_center - w * 0.5f) * 640;
-		float top = (y_center - h * 0.5f) * 640;
-		float right = (x_center + w * 0.5f) * 640;
-		float bottom = (y_center + h * 0.5f) * 640;
+		float left = (x_center - w * 0.5f) * 640 / ratio;
+		float top = (y_center - h * 0.5f) * 640 / ratio;
+		float right = (x_center + w * 0.5f) * 640 / ratio;
+		float bottom = (y_center + h * 0.5f) * 640 / ratio;
 		Object obj;
 		obj.rect = cv::Rect_<float>(left, top, right - left, bottom - top);
 		obj.label = label;
 		obj.score = confidence;
 		proposals.push_back(obj);
 	}
-	draw_objects(flt_img, proposals);
+	draw_objects(src_img, proposals);
 }
 std::vector<float> prepareImage(std::vector<cv::Mat>& vec_img) {
 	std::vector<float> result(BATCH_SIZE * IMAGE_WIDTH * IMAGE_HEIGHT * INPUT_CHANNEL);
@@ -283,3 +283,4 @@ int main()
 	string image_path = "bus.jpg";
 	InferenceFolder(image_path);
 }
+
