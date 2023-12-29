@@ -6,8 +6,8 @@ class SampleErrorRecorder;
 extern SampleErrorRecorder gRecorder;
 namespace sample
 {
-	extern Logger gLogger;
-	extern LogStreamConsumer gLogVerbose;
+    extern Logger gLogger;
+    extern LogStreamConsumer gLogVerbose;
     extern LogStreamConsumer gLogInfo;
     extern LogStreamConsumer gLogWarning;
     extern LogStreamConsumer gLogError;
